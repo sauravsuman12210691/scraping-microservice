@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import Fastify from 'fastify';
 import { scrape } from './scrapeController.js';
+import { checkGeminiHealth } from './llmEnrich.js';
 
 const app = Fastify({ logger: true });
 
@@ -23,6 +24,10 @@ const scrapeSchema = {
         rating: { type: 'string' },
         availability: { type: 'string' },
         offers: { type: 'array', items: { type: 'string' } },
+        details: {
+          type: 'object',
+          additionalProperties: { type: 'string' },
+        },
       },
     },
   },
@@ -43,8 +48,15 @@ app.post('/scrape', { schema: scrapeSchema }, async (request, reply) => {
   }
 });
 
-// Health check
 app.get('/health', async () => ({ status: 'ok' }));
+
+app.get('/health/gemini', async (request, reply) => {
+  const result = await checkGeminiHealth();
+  if (!result.ok) {
+    return reply.status(503).send(result);
+  }
+  return reply.send(result);
+});
 
 const port = parseInt(process.env.PORT || '3000', 10);
 

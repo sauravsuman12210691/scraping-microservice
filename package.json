@@ -1,7 +1,7 @@
 {
   "name": "app-proxer",
   "version": "1.0.0",
-  "description": "Product scraping microservice for Amazon, Flipkart, and Myntra with IP rotation",
+  "description": "Product scraping microservice for Amazon, Flipkart, and Meesho with IP rotation",
   "main": "src/server.js",
   "type": "module",
   "scripts": {
@@ -9,6 +9,7 @@
     "dev": "nodemon src/server.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "cheerio": "^1.2.0",
     "dotenv": "^16.4.5",
     "fastify": "^4.27.0",

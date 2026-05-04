@@ -22,10 +22,6 @@ function logWarn(msg, extra = undefined) {
   }
 }
 
-/**
- * Collects a small, serializable snapshot of the page for troubleshooting.
- * Avoids dumping the full __INITIAL_STATE__ (huge).
- */
 async function collectDiagnostics(page) {
   return page.evaluate(() => {
     const st = window.__INITIAL_STATE__;
@@ -78,9 +74,6 @@ async function collectDiagnostics(page) {
   });
 }
 
-/**
- * Safely reads text content of the first matching element.
- */
 async function safeText(page, selector) {
   try {
     const el = page.locator(selector).first();
@@ -91,18 +84,12 @@ async function safeText(page, selector) {
   }
 }
 
-/**
- * Attempts to extract product data from window.__INITIAL_STATE__.
- * Flipkart embeds a rich product graph in this object.
- */
 async function extractFromInitialState(page) {
   return page.evaluate(() => {
     try {
       const state = window.__INITIAL_STATE__;
       if (!state) return null;
 
-      // The product data lives under different keys depending on the page type.
-      // Walk through pageDataV4 → page → data → ... to find a product node.
       const pageData =
         state.pageDataV4?.page?.data ||
         state.pageDataV4?.pageData?.data ||
@@ -112,7 +99,6 @@ async function extractFromInitialState(page) {
 
       let productData = null;
 
-      // Iterate slots/widgets to find the product detail widget
       for (const key of Object.keys(pageData)) {
         const slot = pageData[key];
         if (!slot || typeof slot !== 'object') continue;
@@ -120,7 +106,6 @@ async function extractFromInitialState(page) {
         const widgetData = slot.widget?.data || slot.data;
         if (!widgetData) continue;
 
-        // Look for productInfo or similar shapes
         if (widgetData.productInfo) {
           productData = widgetData.productInfo.value || widgetData.productInfo;
           break;
@@ -149,7 +134,6 @@ async function extractFromInitialState(page) {
         productData.rating?.value ||
         null;
 
-      // Offers / coupons from productData
       const offers = [];
       const offerList =
         productData.offers ||
@@ -174,16 +158,12 @@ async function extractFromInitialState(page) {
   });
 }
 
-/**
- * DOM-based fallback extraction for Flipkart.
- */
 async function extractFromDOM(page) {
   const title =
     (await safeText(page, 'span.B_NuCI')) ||
     (await safeText(page, 'h1.yhB1nd')) ||
     (await safeText(page, 'h1'));
 
-  // New Flipkart UI (obfuscated classes) — try before legacy selectors.
   const price =
     (await safeText(
       page,
@@ -226,12 +206,6 @@ async function extractFromDOM(page) {
   return { title, price, rating, offers };
 }
 
-/**
- * Main Flipkart scraper.
- * @param {string} url
- * @param {string|null} proxy
- * @returns {Promise<object>}
- */
 export async function scrapeFlipkart(url, proxy = null) {
   logVerbose('start', { url, proxy: proxy ? '(set)' : '(none)' });
 

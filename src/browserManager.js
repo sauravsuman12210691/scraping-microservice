@@ -13,12 +13,6 @@ function randomUserAgent() {
   return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 }
 
-/**
- * Launches a Playwright browser with an optional proxy.
- * Always call browser.close() after use.
- * @param {string|null} proxy - e.g. "http://user:pass@host:port"
- * @returns {Promise<import('playwright').Browser>}
- */
 export async function launchBrowser(proxy = null) {
   const launchOptions = {
     headless: true,
@@ -36,11 +30,6 @@ export async function launchBrowser(proxy = null) {
   return chromium.launch(launchOptions);
 }
 
-/**
- * Creates a new browser context with stealth headers and viewport.
- * @param {import('playwright').Browser} browser
- * @returns {Promise<import('playwright').BrowserContext>}
- */
 export async function createContext(browser) {
   const context = await browser.newContext({
     userAgent: randomUserAgent(),
@@ -59,13 +48,6 @@ export async function createContext(browser) {
   return context;
 }
 
-/**
- * Opens a new page, navigates to the URL and waits for the DOM to settle.
- * @param {import('playwright').BrowserContext} context
- * @param {string} url
- * @param {{ onPageError?: (err: Error) => void, onRequestFailed?: (req: import('playwright').Request) => void }} [hooks]
- * @returns {Promise<import('playwright').Page>}
- */
 export async function openPage(context, url, hooks = {}) {
   const page = await context.newPage();
 
@@ -76,25 +58,15 @@ export async function openPage(context, url, hooks = {}) {
     page.on('requestfailed', hooks.onRequestFailed);
   }
 
-  // Mask WebDriver property to avoid detection
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
   });
 
-  // 'commit' fires as soon as response headers arrive — faster through proxies.
-  // Then we wait for a body element so the DOM is actually usable.
   await page.goto(url, { waitUntil: 'commit' });
   await page.waitForSelector('body', { timeout: 30_000 }).catch(() => {});
   return page;
 }
 
-/**
- * Retries an async function with exponential back-off.
- * @param {() => Promise<any>} fn
- * @param {number} retries
- * @param {number} baseDelayMs
- * @returns {Promise<any>}
- */
 export async function withRetry(fn, retries = 3, baseDelayMs = 1500) {
   let lastError;
   for (let attempt = 1; attempt <= retries; attempt++) {

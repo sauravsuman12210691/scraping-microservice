@@ -4,15 +4,6 @@ import { launchBrowser, createContext, openPage } from '../browserManager.js';
 
 const FETCH_TIMEOUT_MS = 90_000;
 
-/* ------------------------------------------------------------------ */
-/* ScraperAPI HTTP (primary) — no Playwright, uses their IP rotation   */
-/* ------------------------------------------------------------------ */
-
-/**
- * @param {string} url
- * @param {string} apiKey
- * @returns {Promise<string>}
- */
 async function fetchAmazonHtmlViaScraperApi(url, apiKey) {
   const params = new URLSearchParams({
     api_key: apiKey,
@@ -37,20 +28,12 @@ async function fetchAmazonHtmlViaScraperApi(url, apiKey) {
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* ld+json — handles @graph, array @type, nested Product              */
-/* ------------------------------------------------------------------ */
-
 function isProductType(t) {
   if (t === 'Product') return true;
   if (Array.isArray(t) && t.includes('Product')) return true;
   return false;
 }
 
-/**
- * @param {any} data
- * @returns {any|null}
- */
 function findProductInJsonLd(data) {
   if (!data || typeof data !== 'object') return null;
   if (isProductType(data['@type']) && (data.name || data.offers)) return data;
@@ -69,10 +52,6 @@ function findProductInJsonLd(data) {
   return null;
 }
 
-/**
- * @param {string} html
- * @returns {any|null}
- */
 function extractLdJsonProduct(html) {
   const $ = cheerio.load(html);
   const scripts = $('script[type="application/ld+json"]');
@@ -83,16 +62,10 @@ function extractLdJsonProduct(html) {
       const data = JSON.parse(raw);
       const product = findProductInJsonLd(data);
       if (product) return product;
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
   return null;
 }
-
-/* ------------------------------------------------------------------ */
-/* HTML parsing (cheerio)                                              */
-/* ------------------------------------------------------------------ */
 
 function firstText($, selectors) {
   for (const sel of selectors) {
@@ -102,10 +75,6 @@ function firstText($, selectors) {
   return null;
 }
 
-/**
- * @param {string} html
- * @returns {{ title: string|null, price: string|null, rating: string|null, availability: string|null, offers: string[] }}
- */
 function parseAmazonFromHtml(html) {
   if (
     /\/errors\/validateCaptcha/i.test(html) ||
@@ -174,7 +143,6 @@ function parseAmazonFromHtml(html) {
     });
   }
 
-  // ld+json merge
   const ld = extractLdJsonProduct(html);
   if (ld) {
     title = title || ld.name || null;
@@ -204,10 +172,6 @@ function isUsableResult(parsed) {
   const p = parsed.price?.trim();
   return Boolean(t || p);
 }
-
-/* ------------------------------------------------------------------ */
-/* Playwright fallback (no API key, or API returned empty)              */
-/* ------------------------------------------------------------------ */
 
 async function safeText(page, selector) {
   try {
@@ -252,9 +216,7 @@ async function extractLdJsonPage(page) {
         };
         const p = findP(data);
         if (p) return p;
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
     return null;
   });
@@ -284,10 +246,6 @@ async function extractOffersPage(page) {
   });
 }
 
-/**
- * @param {string} url
- * @param {string|null} proxy
- */
 async function scrapeAmazonPlaywright(url, proxy) {
   const browser = await launchBrowser(proxy);
   try {
@@ -352,18 +310,6 @@ async function scrapeAmazonPlaywright(url, proxy) {
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* Public entry                                                         */
-/* ------------------------------------------------------------------ */
-
-/**
- * Primary path: ScraperAPI HTTP + cheerio (when SCRAPERAPI_KEY is set).
- * Fallback: Playwright + proxy (Flipkart-style stack).
- *
- * @param {string} url
- * @param {string|null} proxy
- * @returns {Promise<object>}
- */
 export async function scrapeAmazon(url, proxy = null) {
   const apiKey = process.env.SCRAPERAPI_KEY;
 
@@ -375,7 +321,6 @@ export async function scrapeAmazon(url, proxy = null) {
         return toResponse(parsed);
       }
     } catch (err) {
-      // Network / CAPTCHA from API — fall back to browser
       if (process.env.SCRAPERAPI_FALLBACK_PLAYWRIGHT === 'false') {
         throw err;
       }
