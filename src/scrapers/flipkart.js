@@ -63,6 +63,8 @@ async function collectDiagnostics(page) {
       pageDataSlotKeys: pageData ? Object.keys(pageData).slice(0, 25) : [],
       firstSlotSample,
       domSelectorsPresent: {
+        'price.v1zwn21l': !!document.querySelector('.v1zwn21l'),
+        'rating.css-146c3p1': !!document.querySelector('.css-146c3p1'),
         'span.B_NuCI': !!document.querySelector('span.B_NuCI'),
         'div._30jeq3': !!document.querySelector('div._30jeq3'),
         'h1.yhB1nd': !!document.querySelector('h1.yhB1nd'),
@@ -181,12 +183,21 @@ async function extractFromDOM(page) {
     (await safeText(page, 'h1.yhB1nd')) ||
     (await safeText(page, 'h1'));
 
+  // New Flipkart UI (obfuscated classes) — try before legacy selectors.
   const price =
+    (await safeText(
+      page,
+      'div.v1zwn21l.v1zwn20._1psv1zeb9._1psv1ze0'
+    )) ||
+    (await safeText(page, '.v1zwn21l._1psv1zeb9')) ||
+    (await safeText(page, '.v1zwn21l')) ||
+    (await safeText(page, '._1psv1zeb9')) ||
     (await safeText(page, 'div._30jeq3')) ||
     (await safeText(page, '._16Jk6d')) ||
     (await safeText(page, '._25b18c ._30jeq3'));
 
   const rating =
+    (await safeText(page, '.css-146c3p1')) ||
     (await safeText(page, 'div._3LWZlK')) ||
     (await safeText(page, '._2d4LTz'));
 
@@ -318,8 +329,10 @@ export async function scrapeFlipkart(url, proxy = null) {
               ? '__INITIAL_STATE__ exists but no pageDataV4 — Flipkart changed their data shape; update extractFromInitialState.'
               : !diag.hasPageData
                 ? 'pageDataV4 exists but page.data / pageData.data missing — layout or A/B variant differs.'
-                : !usedJson && !diag.domSelectorsPresent['span.B_NuCI']
-                  ? 'JSON and legacy DOM classes both missing — Flipkart obfuscated CSS or showing alternate shell.'
+                : !usedJson &&
+                    !diag.domSelectorsPresent['span.B_NuCI'] &&
+                    !diag.domSelectorsPresent['price.v1zwn21l']
+                  ? 'JSON and known DOM price/title classes missing — update selectors or wait for hydration.'
                   : 'See diagnostics.firstSlotSample for widget keys; extend parser for new productInfo shape.',
       };
 

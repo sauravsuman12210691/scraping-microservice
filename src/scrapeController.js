@@ -38,7 +38,11 @@ export async function scrape(url) {
 
   const scraperFn = scraperMap[platform];
 
-  // getRandomProxy() is called inside the callback so each retry attempt
-  // gets a fresh proxy, avoiding reuse of a blocked IP.
-  return withRetry(() => scraperFn(url, getRandomProxy()), 3);
+  // Flipkart: direct connection only — HTTPS proxy tunnel often fails with some
+  // providers (e.g. net::ERR_TUNNEL_CONNECTION_FAILED). Amazon / Myntra still
+  // use a random proxy each retry attempt.
+  return withRetry(() => {
+    const proxy = platform === 'flipkart' ? null : getRandomProxy();
+    return scraperFn(url, proxy);
+  }, 3);
 }
