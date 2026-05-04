@@ -1,0 +1,17 @@
+{
+  "name": "app-proxer",
+  "version": "1.0.0",
+  "description": "Product scraping microservice for Amazon, Flipkart, and Myntra with IP rotation",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "dotenv": "^16.4.5",
+    "fastify": "^4.27.0",
+    "playwright": "^1.44.0"
+  }
+}
