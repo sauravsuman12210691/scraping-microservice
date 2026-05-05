@@ -6,9 +6,12 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "build": "npm run build --prefix frontend",
+    "dev:web": "npm run dev --prefix frontend"
   },
   "dependencies": {
+    "@fastify/static": "^7.0.4",
     "@google/generative-ai": "^0.24.1",
     "cheerio": "^1.2.0",
     "dotenv": "^16.4.5",

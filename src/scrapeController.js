@@ -16,7 +16,15 @@ function detectPlatform(url) {
   return null;
 }
 
-export async function scrape(url) {
+export async function scrape(url, options = {}) {
+  const { onProgress } = options;
+  const emit = (payload) => {
+    try {
+      onProgress?.({ type: 'progress', ...payload });
+    } catch {}
+  };
+
+  emit({ stage: 'detecting', message: 'Detecting store from URL…' });
   const platform = detectPlatform(url);
 
   if (!platform) {
@@ -24,6 +32,8 @@ export async function scrape(url) {
     err.statusCode = 400;
     throw err;
   }
+
+  emit({ stage: 'detected', message: `Detected: ${platform}`, platform });
 
   const scraperMap = {
     amazon: scrapeAmazon,
@@ -33,10 +43,28 @@ export async function scrape(url) {
 
   const scraperFn = scraperMap[platform];
 
-  let result = await withRetry(() => {
-    const proxy = platform === 'flipkart' ? null : getRandomProxy();
-    return scraperFn(url, proxy);
-  }, 3);
+  let result = await withRetry(
+    async () => {
+      const proxy = platform === 'flipkart' ? null : getRandomProxy();
+      return scraperFn(url, proxy);
+    },
+    3,
+    1500,
+    {
+      onBeforeAttempt: (attempt, max) => {
+        emit({
+          stage: 'scraping',
+          message:
+            attempt === 1
+              ? `Running ${platform} scraper (page fetch & parse)…`
+              : `Retrying scrape after error (${attempt}/${max})…`,
+          platform,
+          attempt,
+          maxAttempts: max,
+        });
+      },
+    }
+  );
 
   const afterScrape = coreFieldsStatus(result);
   console.warn('[scrape] after DOM scrape', {
@@ -45,19 +73,47 @@ export async function scrape(url) {
     ...afterScrape,
   });
 
+  emit({
+    stage: 'parsed',
+    message: 'First pass complete. Checking fields…',
+    platform,
+    fields: afterScrape,
+  });
+
   const enrichInfo = needsLlmEnrichmentInfo(result);
   let enrichmentAttempted = false;
 
   if (enrichInfo.enrich) {
     enrichmentAttempted = true;
+    emit({
+      stage: 'enriching',
+      message: 'Calling Gemini to fill missing title / price / rating…',
+      platform,
+    });
     try {
       const proxy = platform === 'flipkart' ? null : getRandomProxy();
       result = await enrichResultWithGemini(url, platform, result, proxy);
+      emit({
+        stage: 'enriched',
+        message: 'Gemini enrichment finished.',
+        platform,
+        fields: coreFieldsStatus(result),
+      });
     } catch (err) {
       console.warn('[scrape] Gemini enrichment threw:', err.message);
+      emit({
+        stage: 'enrich_error',
+        message: `Gemini error: ${err.message}`,
+        platform,
+      });
     }
   } else {
     console.warn('[scrape] Gemini enrichment skipped:', enrichInfo.skipReason);
+    emit({
+      stage: 'enrich_skipped',
+      message: enrichInfo.skipReason || 'Enrichment not needed',
+      platform,
+    });
   }
 
   const final = coreFieldsStatus(result);
@@ -87,6 +143,8 @@ export async function scrape(url) {
       )
     );
   }
+
+  emit({ stage: 'finalizing', message: 'Preparing response…', platform });
 
   return result;
 }

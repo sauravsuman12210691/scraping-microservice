@@ -67,9 +67,10 @@ export async function openPage(context, url, hooks = {}) {
   return page;
 }
 
-export async function withRetry(fn, retries = 3, baseDelayMs = 1500) {
+export async function withRetry(fn, retries = 3, baseDelayMs = 1500, hooks = {}) {
   let lastError;
   for (let attempt = 1; attempt <= retries; attempt++) {
+    hooks.onBeforeAttempt?.(attempt, retries);
     try {
       return await fn();
     } catch (err) {
